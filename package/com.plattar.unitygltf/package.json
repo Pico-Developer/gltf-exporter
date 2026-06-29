@@ -1,0 +1,12 @@
+{
+	"name": "com.plattar.unitygltf",
+	"displayName": "glTF 2.0",
+	"version": "1.142.0",
+	"unity": "2019.1",
+	"description": "Unity3D library for importing and exporting GLTF 2.0 assets. https://github.com/Plattar/gltf-exporter",
+	"keywords": [],
+	"samples": [],
+	"dependencies": {
+		"com.unity.textmeshpro": "3.0.7"
+	}
+}
