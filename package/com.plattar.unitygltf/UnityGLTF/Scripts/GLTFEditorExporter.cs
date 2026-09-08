@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition.Primitives;
 using System.IO;
@@ -22,6 +22,8 @@ namespace UnityGLTF
 {
 	public partial class GLTFEditorExporter
 	{
+		public static Action<string, string, string, Material, string> ExportShaderGraphWithOverride;
+
 		private Transform[] _rootTransforms;
 		private GLTFRoot _root;
 		private BufferId _bufferId;
@@ -1030,14 +1032,71 @@ namespace UnityGLTF
 			bool validMaterial = materialObj != null;
 			bool isShaderGraph = Path.GetExtension(AssetDatabase.GetAssetPath(materialObj.shader)) == ".shadergraph";
 			return validMaterial && isShaderGraph;
+		}
 
+		private string GetAssetPathWithoutExtension(string assetPath)
+		{
+			string extension = Path.GetExtension(assetPath);
+			return string.IsNullOrEmpty(extension)
+				? assetPath
+				: assetPath.Substring(0, assetPath.Length - extension.Length);
+		}
+
+		private string GetShaderGraphPlaceholderBundlePath(UnityEngine.Material materialObj)
+		{
+			string shaderAssetPath = AssetDatabase.GetAssetPath(materialObj.shader);
+			string shaderAssetDirectory = Path.GetDirectoryName(shaderAssetPath) ?? string.Empty;
+			return Path.Combine(shaderAssetDirectory, materialObj.name).Replace("\\", "/");
+		}
+
+		private string GetShaderGraphExportDirectory()
+		{
+			string projectDirectory = Path.GetDirectoryName(Application.dataPath) ?? string.Empty;
+			return Path.Combine(projectDirectory, "Temp", "SpatialAdapterExport");
+		}
+
+		private string GetShaderGraphExportPath(string shaderGraphBundlePath)
+		{
+			return Path.Combine(GetShaderGraphExportDirectory(), shaderGraphBundlePath + ".usda");
+		}
+
+		private void ExportUniqueMaterialShaderGraph(UnityEngine.Material materialObj)
+		{
+			string shaderAssetPath = AssetDatabase.GetAssetPath(materialObj.shader);
+			if (string.IsNullOrEmpty(shaderAssetPath))
+			{
+				Debug.LogWarning($"GLTF Exporter: Could not resolve ShaderGraph asset path for material {materialObj.name}.");
+				return;
+			}
+
+			string shaderGraphName = Path.GetFileNameWithoutExtension(shaderAssetPath);
+			string placeholderShaderGraphName = materialObj.name;
+			if (string.Equals(shaderGraphName, placeholderShaderGraphName, StringComparison.Ordinal))
+			{
+				return;
+			}
+
+			string placeholderBundlePath = GetShaderGraphPlaceholderBundlePath(materialObj);
+			string placeholderExportPath = GetShaderGraphExportPath(placeholderBundlePath);
+			if (ExportShaderGraphWithOverride == null)
+			{
+				Debug.LogWarning(
+					$"GLTF Exporter: No ShaderGraph export bridge registered for material {materialObj.name}.");
+				return;
+			}
+
+			ExportShaderGraphWithOverride(
+				shaderAssetPath,
+				placeholderExportPath,
+				GetShaderGraphExportDirectory(),
+				materialObj,
+				placeholderShaderGraphName);
 		}
 
 		private string GetShaderGraphPlaceholderMaterialName(UnityEngine.Material materialObj)
 		{
-			return AssetDatabase.GetAssetPath(materialObj)
-				       .Replace(".shadergraph", "")
-				       .Insert(0, ShaderGraphMaterialPrefixFlag)
+			return ShaderGraphMaterialPrefixFlag
+			       + GetShaderGraphPlaceholderBundlePath(materialObj)
 			       + ShaderGraphMaterialExtendedPath
 			       + materialObj.name;
 		}
@@ -1054,7 +1113,9 @@ namespace UnityGLTF
 				
 				//	Make a dummy material with a name that is the same as the the path it will have in the asset bundle
 				shaderGraphPlaceholder.name = GetShaderGraphPlaceholderMaterialName(materialObj);
-				
+				Debug.LogWarning("Placeholder name: " + shaderGraphPlaceholder.name);
+				ExportUniqueMaterialShaderGraph(materialObj);
+
 				return ExportUnlitTextureMaterial(shaderGraphPlaceholder);
 			}
 			
