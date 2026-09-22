@@ -32,7 +32,7 @@ namespace UnityGLTF
 		private List<Texture2D> _images;
 		private List<UnityEngine.Texture> _textures;
 		private List<UnityEngine.Material> _materials;
-		private Dictionary<int, int> _exportedTransforms;
+		private Dictionary<long, int> _exportedTransforms;
 		private List<Transform> _animatedNodes;
 		private List<Transform> _skinnedNodes;
 		private Dictionary<SkinnedMeshRenderer, UnityEngine.Mesh> _bakedMeshes;
@@ -53,6 +53,15 @@ namespace UnityGLTF
         private const int SectionHeaderSize = 8;
 
 		private const int alignment = 4;
+
+		private static long GetObjectId(UnityEngine.Object obj)
+		{
+#if UNITY_6000_5_OR_NEWER
+			return unchecked((long)EntityId.ToULong(obj.GetEntityId()));
+#else
+			return obj.GetInstanceID();
+#endif
+		}
 
 		private bool _shouldUseInternalBufferForImages;
 		
@@ -239,7 +248,7 @@ namespace UnityGLTF
 
 		private void initializeStructures(string generator = "")
 		{
-			_exportedTransforms = new Dictionary<int, int>();
+			_exportedTransforms = new Dictionary<long, int>();
 			_animatedNodes = new List<Transform>();
 			_skinnedNodes = new List<Transform>();
 			_exportedFiles = new Dictionary<string, string>();
@@ -680,7 +689,7 @@ namespace UnityGLTF
 			};
 
 			// Register nodes for animation parsing (could be disabled is animation is disables)
-			_exportedTransforms.Add(nodeTransform.GetInstanceID(), _root.Nodes.Count);
+			_exportedTransforms.Add(GetObjectId(nodeTransform), _root.Nodes.Count);
 
 			_root.Nodes.Add(node);
 			// Update progress
@@ -2995,13 +3004,14 @@ namespace UnityGLTF
 
 		private int getTargetIdFromTransform(ref Transform transform)
 		{
-			if (_exportedTransforms.ContainsKey(transform.GetInstanceID()))
+			var transformId = GetObjectId(transform);
+			if (_exportedTransforms.ContainsKey(transformId))
 			{
-				return _exportedTransforms[transform.GetInstanceID()];
+				return _exportedTransforms[transformId];
 			}
 			else
 			{
-				Debug.Log(transform.name + " " + transform.GetInstanceID());
+				Debug.Log(transform.name + " " + transformId);
 				return 0;
 			}
 		}
@@ -3290,7 +3300,7 @@ namespace UnityGLTF
 				gltfSkin.Joints.Add(
 					new NodeId
 					{
-						Id = _exportedTransforms[bone.GetInstanceID()],
+						Id = _exportedTransforms[GetObjectId(bone)],
 						Root = _root
 					});
 				
@@ -3334,7 +3344,7 @@ namespace UnityGLTF
 						gltfSkin.Joints.Add(
 							new NodeId
 							{
-								Id = _exportedTransforms[missing.GetInstanceID()],
+								Id = _exportedTransforms[GetObjectId(missing)],
 								Root = _root
 							});
 					}
@@ -3355,7 +3365,7 @@ namespace UnityGLTF
 					prim.Attributes.Add("WEIGHTS_0", ExportAccessor(weights));
 			}
 
-			_root.Nodes[_exportedTransforms[transform.GetInstanceID()]].Skin = new SkinId() { Id = _root.Skins.Count, Root = _root };
+			_root.Nodes[_exportedTransforms[GetObjectId(transform)]].Skin = new SkinId() { Id = _root.Skins.Count, Root = _root };
 			_root.Skins.Add(gltfSkin);
 		}
 
