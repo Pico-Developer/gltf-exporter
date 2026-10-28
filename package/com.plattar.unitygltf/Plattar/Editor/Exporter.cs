@@ -13,16 +13,7 @@ namespace Plattar {
 
 		GameObject selectedObject;
 		static Texture logo;
-		static readonly List<long> pivotCheck = new List<long>();
-
-		static long GetObjectId(UnityEngine.Object obj)
-		{
-#if UNITY_6000_5_OR_NEWER
-			return unchecked((long)EntityId.ToULong(obj.GetEntityId()));
-#else
-			return obj.GetInstanceID();
-#endif
-		}
+		static readonly List<GameObject> pivotCheck = new List<GameObject>();
 
 		[MenuItem("Plattar/Export Active Scene")]
 		static void ExportScene()
@@ -183,7 +174,7 @@ namespace Plattar {
 
 			EditorGUI.EndDisabledGroup();
 
-			EditorGUI.BeginDisabledGroup(!pivotCheck.Contains(GetObjectId(selectedObject)));
+			EditorGUI.BeginDisabledGroup(!pivotCheck.Contains(selectedObject));
 
 			// only support center-pivot objects for now
 			if (GUILayout.Button($"Pin to Alignment Grid")) {
@@ -402,7 +393,7 @@ namespace Plattar {
 				}
 			}
 
-			pivotCheck.Add(GetObjectId(root));
+			pivotCheck.Add(root);
 		}
 	}
 }

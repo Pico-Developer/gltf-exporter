@@ -120,19 +120,26 @@ public class GLTFTextureUtils
 	}
 
 	// CORE
-	private static Texture2D processTextureMaterial(Texture2D texture, Material blitMaterial, bool isRGB=false)
+	private static Texture2D processTextureMaterial(Texture2D texture, Material blitMaterial = null, bool isRGB=false)
 	{
 		bool isMonoColor = texture.format == TextureFormat.Alpha8 || texture.format == TextureFormat.R8;
-		TextureFormat textureFormat = TextureFormat.ARGB32;
+		TextureFormat textureFormat = TextureFormat.RGBA32;
 		if (isMonoColor) textureFormat = TextureFormat.R8;
 		if (isRGB) textureFormat = TextureFormat.RGB24;
 		
 		var exportTexture = new Texture2D(texture.width, texture.height, textureFormat, false);
 		exportTexture.name = texture.name;
-
+		
 		RenderTextureFormat rtFormat = isMonoColor ? RenderTextureFormat.R8 : RenderTextureFormat.ARGB32;
 		var renderTexture = RenderTexture.GetTemporary(texture.width, texture.height, 32, rtFormat);
-		Graphics.Blit(exportTexture, renderTexture, blitMaterial);
+		if (blitMaterial == null)
+		{
+			Graphics.Blit(texture, renderTexture);
+		}
+		else
+		{
+			Graphics.Blit(texture, renderTexture, blitMaterial);
+		}
 		RenderTexture.active = renderTexture;
 
 		exportTexture.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
@@ -208,10 +215,15 @@ public class GLTFTextureUtils
 
 	public static Texture2D blitTexture(Texture2D texture)
 	{
-		Material blitMaterial = new Material(Shader.Find(texture.format == TextureFormat.Alpha8 ? _blitTextureAlphaToRed : _blitTexture));
+		Material blitMaterial = texture.format == TextureFormat.Alpha8
+			? new Material(Shader.Find(_blitTextureAlphaToRed))
+			: null;
 		Texture2D temp = texture;
 
-		blitMaterial.SetTexture("_TextureToBlit", temp);
+		if (blitMaterial != null)
+		{
+			blitMaterial.SetTexture("_TextureToBlit", temp);
+		}
 		return processTextureMaterial(temp, blitMaterial, useJPGTexture(texture));
 	}
 

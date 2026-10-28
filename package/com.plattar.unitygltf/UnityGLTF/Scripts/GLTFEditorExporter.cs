@@ -32,7 +32,7 @@ namespace UnityGLTF
 		private List<Texture2D> _images;
 		private List<UnityEngine.Texture> _textures;
 		private List<UnityEngine.Material> _materials;
-		private Dictionary<long, int> _exportedTransforms;
+		private Dictionary<Transform, int> _exportedTransforms;
 		private List<Transform> _animatedNodes;
 		private List<Transform> _skinnedNodes;
 		private Dictionary<SkinnedMeshRenderer, UnityEngine.Mesh> _bakedMeshes;
@@ -53,15 +53,6 @@ namespace UnityGLTF
         private const int SectionHeaderSize = 8;
 
 		private const int alignment = 4;
-
-		private static long GetObjectId(UnityEngine.Object obj)
-		{
-#if UNITY_6000_5_OR_NEWER
-			return unchecked((long)EntityId.ToULong(obj.GetEntityId()));
-#else
-			return obj.GetInstanceID();
-#endif
-		}
 
 		private bool _shouldUseInternalBufferForImages;
 		
@@ -139,6 +130,20 @@ namespace UnityGLTF
 
 		private GLTFTextureUtilsCache _textureCache;
 		public bool ExportNames = true;
+
+		private static int GetUnityObjectId(UnityEngine.Object unityObject)
+		{
+			if (unityObject == null)
+			{
+				return 0;
+			}
+
+#if UNITY_6000_3_OR_NEWER
+			return unityObject.GetEntityId().GetHashCode();
+#else
+			return unityObject.GetInstanceID();
+#endif
+		}
 
 		public enum MaterialDoubleSidedExport {
 			Default,
@@ -248,7 +253,7 @@ namespace UnityGLTF
 
 		private void initializeStructures(string generator = "")
 		{
-			_exportedTransforms = new Dictionary<long, int>();
+			_exportedTransforms = new Dictionary<Transform, int>();
 			_animatedNodes = new List<Transform>();
 			_skinnedNodes = new List<Transform>();
 			_exportedFiles = new Dictionary<string, string>();
@@ -689,7 +694,7 @@ namespace UnityGLTF
 			};
 
 			// Register nodes for animation parsing (could be disabled is animation is disables)
-			_exportedTransforms.Add(GetObjectId(nodeTransform), _root.Nodes.Count);
+			_exportedTransforms.Add(nodeTransform, _root.Nodes.Count);
 
 			_root.Nodes.Add(node);
 			// Update progress
@@ -1078,12 +1083,7 @@ namespace UnityGLTF
 				return;
 			}
 
-			string shaderGraphName = Path.GetFileNameWithoutExtension(shaderAssetPath);
 			string placeholderShaderGraphName = materialObj.name;
-			if (string.Equals(shaderGraphName, placeholderShaderGraphName, StringComparison.Ordinal))
-			{
-				return;
-			}
 
 			string placeholderBundlePath = GetShaderGraphPlaceholderBundlePath(materialObj);
 			string placeholderExportPath = GetShaderGraphExportPath(placeholderBundlePath);
@@ -3004,14 +3004,13 @@ namespace UnityGLTF
 
 		private int getTargetIdFromTransform(ref Transform transform)
 		{
-			var transformId = GetObjectId(transform);
-			if (_exportedTransforms.ContainsKey(transformId))
+			if (_exportedTransforms.ContainsKey(transform))
 			{
-				return _exportedTransforms[transformId];
+				return _exportedTransforms[transform];
 			}
 			else
 			{
-				Debug.Log(transform.name + " " + transformId);
+				Debug.Log(transform.name + " " + GetUnityObjectId(transform));
 				return 0;
 			}
 		}
@@ -3300,7 +3299,7 @@ namespace UnityGLTF
 				gltfSkin.Joints.Add(
 					new NodeId
 					{
-						Id = _exportedTransforms[GetObjectId(bone)],
+						Id = _exportedTransforms[bone],
 						Root = _root
 					});
 				
@@ -3344,7 +3343,7 @@ namespace UnityGLTF
 						gltfSkin.Joints.Add(
 							new NodeId
 							{
-								Id = _exportedTransforms[GetObjectId(missing)],
+								Id = _exportedTransforms[missing],
 								Root = _root
 							});
 					}
@@ -3365,7 +3364,7 @@ namespace UnityGLTF
 					prim.Attributes.Add("WEIGHTS_0", ExportAccessor(weights));
 			}
 
-			_root.Nodes[_exportedTransforms[GetObjectId(transform)]].Skin = new SkinId() { Id = _root.Skins.Count, Root = _root };
+			_root.Nodes[_exportedTransforms[transform]].Skin = new SkinId() { Id = _root.Skins.Count, Root = _root };
 			_root.Skins.Add(gltfSkin);
 		}
 

@@ -52,6 +52,7 @@ namespace UnityGLTF
                 return default;
             }
 
+            RawImage rawImage = uiGraphic as RawImage;
             var material = uiGraphic.material;
             bool exportVertexColors = false;
 
@@ -70,7 +71,22 @@ namespace UnityGLTF
                 // Update material properties
                 Color color = canvasRenderer.GetColor();
                 color.a *= canvasRenderer.GetInheritedAlpha();
+                if (rawImage != null)
+                {
+                    Debug.Log(
+                        $"[SpatialAdapter][RawImage] Default UI material branch before mainTexture assignment for '{rawImage.gameObject.name}' " +
+                        $"entityId={GetUnityObjectId(rawImage.gameObject)}, rawImageTexture={DescribeTexture(rawImage.texture)}, " +
+                        $"uiGraphicMainTexture={DescribeTexture(uiGraphic.mainTexture)}.");
+                }
                 material.mainTexture = uiGraphic.mainTexture;
+                if (rawImage != null)
+                {
+                    Debug.Log(
+                        $"[SpatialAdapter][RawImage] Default UI material branch after mainTexture assignment for '{rawImage.gameObject.name}' " +
+                        $"entityId={GetUnityObjectId(rawImage.gameObject)}, materialMainTexture={DescribeTexture(material.mainTexture)}, " +
+                        $"sameAsRawImageTexture={ReferenceEquals(material.mainTexture, rawImage.texture)}, " +
+                        $"sameAsUiGraphicMainTexture={ReferenceEquals(material.mainTexture, uiGraphic.mainTexture)}.");
+                }
                 material.color = color;
             }
 
@@ -90,15 +106,39 @@ namespace UnityGLTF
                 mesh.Name = name;
             }
 
+            var exportMesh = canvasMesh;
+            if (rawImage != null)
+            {
+                Debug.Log(
+                    $"[SpatialAdapter][RawImage] Exporting RawImage '{rawImage.gameObject.name}' " +
+                    $"entityId={GetUnityObjectId(rawImage.gameObject)}, uvRect={rawImage.uvRect}, " +
+                    $"textureType={rawImage.texture?.GetType().Name ?? "<null>"}, textureName='{rawImage.texture?.name ?? "<null>"}'.");
+                exportMesh = RawImageExportUtils.CreateExportMesh(canvasMesh, rawImage.uvRect);
+            }
+
             mesh.Primitives = new List<MeshPrimitive>(1);
-            mesh.Primitives.AddRange(ExportPrimitive(canvasMesh, new[] { material }, exportVertexColors));
+            try
+            {
+                mesh.Primitives.AddRange(ExportPrimitive(exportMesh, new[] { material }, exportVertexColors));
+            }
+            finally
+            {
+                RawImageExportUtils.DestroyExportMesh(canvasMesh, exportMesh);
+            }
+
+            if (mesh.Primitives.Count == 0) return default;
 
             var exportedMaterial = _root.Materials[^1];
             exportedMaterial.DoubleSided = true;
             exportedMaterial.AlphaMode = AlphaMode.BLEND;
             _root.Materials[^1] = exportedMaterial;
 
-            if (mesh.Primitives.Count == 0) return default;
+            if (rawImage != null)
+            {
+                Debug.Log(
+                    $"[SpatialAdapter][RawImage] Exported RawImage '{rawImage.gameObject.name}' " +
+                    $"entityId={GetUnityObjectId(rawImage.gameObject)}, primitiveCount={mesh.Primitives.Count}.");
+            }
             
             var id = new MeshId
             {
@@ -107,6 +147,16 @@ namespace UnityGLTF
             };
             _root.Meshes.Add(mesh);
             return id;
+        }
+
+        private static string DescribeTexture(UnityEngine.Texture texture)
+        {
+            if (texture == null)
+            {
+                return "<null>";
+            }
+
+            return $"{texture.GetType().Name}('{texture.name}', entityId={GetUnityObjectId(texture)}, size={texture.width}x{texture.height})";
         }
     }
 }

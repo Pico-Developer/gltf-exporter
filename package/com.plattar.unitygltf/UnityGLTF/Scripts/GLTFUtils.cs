@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.IO;
@@ -244,7 +244,6 @@ public class GLTFUtils
 	public static string buildImageName(Texture2D image)
 	{
 		string extension = GLTFTextureUtils.useJPGTexture(image) ? ".jpg": ".png";
-		//return image.GetInstanceID().ToString().Replace("-", "") + "_" + image.name + extension;
 		return image.name + extension;
 	}
 
